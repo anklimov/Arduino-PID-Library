@@ -1,6 +1,7 @@
 /**********************************************************************************************
- * Arduino PID Library - Version 1.2.1
+ * Arduino PID Library - Version 1.2.1p
  * by Brett Beauregard <br3ttb@gmail.com> brettbeauregard.com
+ * by Andrew Klimov <anklimov@gmail.com> http://lazyhome.ru
  *
  * This Library is licensed under the MIT License
  **********************************************************************************************/
@@ -18,7 +19,7 @@
  *    reliable defaults, so we need to have the user set them.
  ***************************************************************************/
 PID::PID(iotype* Input, iotype* Output, iotype* Setpoint,
-        double Kp, double Ki, double Kd, int POn, int ControllerDirection)
+        double Kp, double Ki, double Kd, int POn, int ControllerDirection, unsigned long _valTimeout, iotype _outDefault)
 {
     myOutput = Output;
     myInput = Input;
@@ -34,7 +35,17 @@ PID::PID(iotype* Input, iotype* Output, iotype* Setpoint,
     PID::SetTunings(Kp, Ki, Kd, POn);
 
     lastTime = millis()-SampleTime;
-}
+    valTimeout = _valTimeout;
+    outDefault = _outDefault;
+
+    lastValTime = 0;
+    if (valTimeout)
+    {
+        *myInput = NAN; //if value is outdated - set to NAN and PID will not work
+    }
+    if (!isnan(outDefault)) SetVal(outDefault);
+   }
+
 
 /*Constructor (...)*********************************************************
  *    To allow backwards compatability for v1.1, or for people that just want
@@ -49,6 +60,14 @@ PID::PID(iotype* Input, iotype* Output, iotype* Setpoint,
 }
 
 
+void PID::SetVal(iotype val) 
+  {  
+   *myInput = val; 
+   lastValTime = millis(); 
+   if(!lastValTime) lastValTime=1; //to prevent overflow issue with millis
+
+}; 
+
 /* Compute() **********************************************************************
  *     This, as they say, is where the magic happens.  this function should be called
  *   every time "void loop()" executes.  the function will decide for itself whether a new
@@ -59,9 +78,20 @@ bool PID::Compute()
 {
    if(!inAuto) return false;
    unsigned long now = millis();
+
+   unsigned long valTimeChange = (now - lastValTime);
+   if(valTimeout && !isnan(*myInput) && valTimeChange>=valTimeout )
+   {
+       *myInput = NAN; //if value is outdated - set to NAN and PID will not work
+       if (!isnan(outDefault)) SetVal(outDefault); //if we have default value for output - set it when output value is outdated to prevent integral windup and other issues with PID when output is changed outside of Compute() function.
+       return false;
+   }
+   
    unsigned long timeChange = (now - lastTime);
    if(timeChange>=SampleTime)
    {
+      if (isnan(*myInput) || isnan(*mySetpoint)) return false; //if we have no input or setpoint - do not compute, but do not return error as well, just wait for next cycle when values can be updated. 
+      if (isnan(lastInput)||isnan(outputSum)) PID::Initialize(); //if we have no lastInput or outputSum - initialize to prevent pid windup at the beginning of control
       /*Compute all the working error variables*/
       double input = *myInput;
       double error = *mySetpoint - input;
@@ -189,6 +219,7 @@ void PID::SetMode(int Mode)
 void PID::Initialize()
 {
    outputSum = *myOutput;
+   if (isnan(outputSum)) outputSum = 0; //if output is not a number - set to 0 to prevent integral windup and other issues with PID when output is changed outside of Compute() function. 
    lastInput = *myInput;
    if(outputSum > outMax) outputSum = outMax;
    else if(outputSum < outMin) outputSum = outMin;
@@ -204,7 +235,7 @@ void PID::SetControllerDirection(int Direction)
 {
    if(inAuto && Direction !=controllerDirection)
    {
-	    kp = (0 - kp);
+	   kp = (0 - kp);
       ki = (0 - ki);
       kd = (0 - kd);
    }

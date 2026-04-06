@@ -1,6 +1,6 @@
 #ifndef PID_v1_h
 #define PID_v1_h
-#define LIBRARY_VERSION	1.2.1
+#define LIBRARY_VERSION	1.2.1p
 
 #define iotype float
 
@@ -19,8 +19,9 @@ class PID
   #define P_ON_E 1
 
   //commonly used functions **************************************************************************
-    PID(iotype*, iotype*, iotype*,        // * constructor.  links the PID to the Input, Output, and 
-        double, double, double, int, int);//   Setpoint.  Initial tuning parameters are also set here.
+    PID(iotype* Input, iotype* Output, iotype* Setpoint,
+        double Kp, double Ki, double Kd, int POn, int ControllerDirection, unsigned long _valTimeout=0, iotype _valDefault=NAN);
+                                          //   Setpoint.  Initial tuning parameters are also set here.
                                           //   (overload for specifying proportional mode)
 
     PID(iotype*, iotype*, iotype*,        // * constructor.  links the PID to the Input, Output, and 
@@ -64,6 +65,8 @@ class PID
   iotype GetIn() {return *myInput;};
   iotype GetOut() {return *myOutput;};
   iotype GetSet() {return *mySetpoint;};
+  void SetVal(iotype val); //allow to set output value directly, but keep track of time when it was set to prevent integral windup and other issues with PID when output is changed outside of Compute() function.
+
 
   ////private:
 	void Initialize();
@@ -73,18 +76,18 @@ class PID
 	double dispKd;				//
     
 	double kp;                  // * (P)roportional Tuning Parameter
-    double ki;                  // * (I)ntegral Tuning Parameter
-    double kd;                  // * (D)erivative Tuning Parameter
+  double ki;                  // * (I)ntegral Tuning Parameter
+  double kd;                  // * (D)erivative Tuning Parameter
 
 	int controllerDirection;
 	int pOn;
 
-    iotype *myInput;              // * Pointers to the Input, Output, and Setpoint variables
-    iotype *myOutput;             //   This creates a hard link between the variables and the 
-    iotype *mySetpoint;           //   PID, freeing the user from having to constantly tell us
+  iotype *myInput;              // * Pointers to the Input, Output, and Setpoint variables
+  iotype *myOutput;             //   This creates a hard link between the variables and the 
+  iotype *mySetpoint;           //   PID, freeing the user from having to constantly tell us
                                   //   what these values are.  with pointers we'll just know.
-			  
-	unsigned long lastTime;
+	iotype outDefault;		  
+	unsigned long lastTime, lastValTime, valTimeout;
 	double outputSum, lastInput;
 
 	unsigned long SampleTime;
