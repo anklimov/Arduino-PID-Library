@@ -37,7 +37,7 @@ class PID
     void SetOutputLimits(double, double); // * clamps the output to a specific range. 0-255 by default, but
 										                      //   it's likely the user will want to change this depending on
 										                      //   the application
-	
+	  bool isOutdated(){return isnan(*myInput); };            // * return true if the input value is outdated (i.e. it was not updated for a time longer than valTimeout) and PID will not work because of it.
 
 
   //available but not commonly used functions ********************************************************

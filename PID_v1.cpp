@@ -43,7 +43,7 @@ PID::PID(iotype* Input, iotype* Output, iotype* Setpoint,
     {
         *myInput = NAN; //if value is outdated - set to NAN and PID will not work
     }
-    if (!isnan(outDefault)) SetVal(outDefault);
+    if (!isnan(outDefault)) *myOutput = outDefault;
    }
 
 
@@ -83,7 +83,12 @@ bool PID::Compute()
    if(valTimeout && !isnan(*myInput) && valTimeChange>=valTimeout )
    {
        *myInput = NAN; //if value is outdated - set to NAN and PID will not work
-       if (!isnan(outDefault)) SetVal(outDefault); //if we have default value for output - set it when output value is outdated to prevent integral windup and other issues with PID when output is changed outside of Compute() function.
+       if (!isnan(outDefault)) 
+            {
+            *myOutput = outDefault; //if we have default value for output - set it when output value is outdated to prevent integral windup and other issues with PID when output is changed outside of Compute() function.
+            return true; //return true if we set default value, so PID will compute output based on it, otherwise return false and do not compute because we have no input value
+            }
+       else
        return false;
    }
    
